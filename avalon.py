@@ -1,4 +1,5 @@
 import random
+import json
 from discord import Embed, Member
 from discord.ext.commands import Bot, Cog
 from discord_slash import cog_ext, SlashContext, ComponentContext
@@ -137,69 +138,59 @@ class Avalon(Cog):
                 await button_ctx.send(f"{button_ctx.author.mention} is now unready! ({len(self.ready_players)}/{len(self.players)})")
 
     async def assign_roles(self):
+        
+        with open("role_thumbnails.json") as f:
+            role_thumbnails = json.load(f)
+
         roles_for_this_game = []
-        role_thumbnails = {"Loyal Servant of Arthur": "http://gamekicker.herokuapp.com/assets/loyal-5b2decd4aa309e12020b50b3950ab440.jpeg",
-          "Merlin": "https://www.ultraboardgames.com/avalon/gfx/merlin.jpg",
-          "Percival": "https://www.ultraboardgames.com/avalon/gfx/percival.jpg",
-          "Morgana": "https://www.ultraboardgames.com/avalon/gfx/morgana.jpg",
-          "Mordred": "https://www.ultraboardgames.com/avalon/gfx/mordred.jpg",
-          "Assassin": "https://www.ultraboardgames.com/avalon/gfx/assassin.jpg",
-          "Minion of Mordred": "http://gamekicker.herokuapp.com/assets/minion-553e9b70b2aea7fbfd37e20e68aab878.jpeg"}
+        for role, number in self.roles[len(self.players)].items():
+            roles_for_this_game += [role] * number
 
         random.shuffle(self.players)
-
-        for role, number in self.roles[len(self.players)].items():
-            for n in range(number):
-                roles_for_this_game.append(role)
+        random.shuffle(roles_for_this_game)
 
         for player in self.players:
-            self.player_roles.update({player:roles_for_this_game.pop()})
-        
-        evil_players = []
-        for player, role in self.player_roles.items():
-            if role in self.evil:
-                evil_players.append(player)
+            self.player_roles[player] = roles_for_this_game.pop()
 
         for player, role in self.player_roles.items():
-            message = ""
-            embed_role = ""
-            embed_color = 0x77dd77
-            embed_desc = ""
-            embed_thumbnail = ""
             if role in self.evil:
                 embed_role = "Minion of Mordred"
                 embed_color = 0xff4055
                 embed_desc = "You are a Minion of Mordred"
-                message += "The other players on your team are:\n"
-                for p in evil_players:
-                    if p != player:
-                        message += self.displayname(p) + "\n"
             
             if role in self.good:
                 embed_role = "Loyal Servant of Arthur"
+                embed_color = 0x77dd77
                 embed_desc = "You are a Loyal Servant of Arthur"
-
-            if role == "Merlin":
-                message += "The Minions of Mordred (excluding Mordred) are:\n"
-                for p in evil_players:
-                    if self.player_roles[p] != "Mordred":
-                        message += self.displayname(p) + "\n"
             
-            if role == "Percival":
-                message += "Merlin and Morgana are (you don't know who is who):\n"
-                for p in self.players:
-                   if self.player_roles[p] == "Merlin" or self.player_roles[p] == "Morgana":
-                        message += self.displayname(p) + "\n"
-            
-            if role != "Loyal Servant of Arthur" and role != "Minion of Mordred":
-                embed_desc = f"You are {role}!\nUse `/guide` to find a guide about your role."
-                embed_thumbnail = role_thumbnails[role]
-            
+            embed_desc = f"You are {role}!\nUse `/guide` to find a guide about your role."
+            embed_thumbnail = role_thumbnails[role]
             embed = self.make_embed("Avalon", embed_color, embed_desc, embed_role)
             embed.set_thumbnail(url=embed_thumbnail)
             await player.send(embed=embed)
-            if message != "":
-                await player.send(message)
+        
+
+        
+        for player in [p for p in self.players if self.player_roles[player] in self.evil]:
+            evil_filter = lambda p: self.player_roles[p] in self.evil
+            player.send(f"The members of the Minion of Mordred are:\n{await self.enumerate_players(evil_filter)}")
+        
+        for player in [p for p in self.players if self.player_roles[player] == "Merlin"]:
+            merlin_filter = lambda p: self.player_roles[p] in self.evil and self.player_roles[p] == "Mordred"
+            await player.send(f"The Minions of Mordred (excluding Mordred) are:\n{await self.enumerate_players(merlin_filter)}")
+        
+        for player in [p for p in self.players if self.player_roles[player] == "Percival"]:
+            percival_filter = lambda p: self.player_roles[p] == "Merlin" or self.player_roles[p] == "Morgana"
+            await player.send(f"Merlin and Morgana are (you don't know who is who): {await self.enumerate_players(percival_filter)}")
+
+    async def enumerate_players(self, filter):
+        message = ""
+        for player in self.players:
+            if filter(player):
+                message += player.mention + ", "
+        if len(message) > 0:
+            message = message[:-2]
+        return message
 
     async def send_player_order(self, ctx: SlashContext):
         message = "The order of players is:\n"
@@ -208,7 +199,7 @@ class Avalon(Cog):
 
         await ctx.send(message)
 
-    async def make_dropdown(self, channel_id, message, players, player_select_list, num_opt):
+    async def make_dropdown(self, channel_id: int, message: str, players: list(Member), player_select_list: list(Member), num_opt: int):
         result = {}
         channel = self.bot.get_channel(channel_id)
         select = create_select(
