@@ -30,7 +30,6 @@ class Avalon(Cog):
         }
         self.good = ["Loyal Servant of Arthur", "Merlin", "Percival"]
         self.evil = ["Morgana", "Mordred", "Assassin", "Minion of Mordred"]
-        self.ctx = None
     
     def displayname(self, member: Member):
         # A helper function to return the member's display name
@@ -138,7 +137,6 @@ class Avalon(Cog):
                 await button_ctx.send(f"{button_ctx.author.mention} is now unready! ({len(self.ready_players)}/{len(self.players)})")
 
     async def assign_roles(self):
-        
         with open("role_thumbnails.json") as f:
             role_thumbnails = json.load(f)
 
@@ -169,37 +167,36 @@ class Avalon(Cog):
             embed.set_thumbnail(url=embed_thumbnail)
             await player.send(embed=embed)
         
+        for player in [p for p in self.players if self.player_roles[p] in self.evil]:
+            evil_players = [p for p in self.players if (self.player_roles[p] in self.evil)]
+            await player.send(f"The members of the Minion of Mordred are:\n{await self.enumerate_players(evil_players)}")
+        
+        for player in [p for p in self.players if self.player_roles[p] == "Merlin"]:
+            merlin_players = [p for p in self.players if (self.player_roles[p] in self.evil and self.player_roles[p] != "Mordred")]
+            await player.send(f"The Minions of Mordred (excluding Mordred) are:\n{await self.enumerate_players(merlin_players)}")
+        
+        for player in [p for p in self.players if self.player_roles[p] == "Percival"]:
+            percival_players = [p for p in self.players if (self.player_roles[p] == "Merlin" or self.player_roles[p] == "Morgana")]
+            await player.send(f"Merlin and Morgana are (you don't know who is who): {await self.enumerate_players(percival_players)}")
 
-        
-        for player in [p for p in self.players if self.player_roles[player] in self.evil]:
-            evil_filter = lambda p: self.player_roles[p] in self.evil
-            player.send(f"The members of the Minion of Mordred are:\n{await self.enumerate_players(evil_filter)}")
-        
-        for player in [p for p in self.players if self.player_roles[player] == "Merlin"]:
-            merlin_filter = lambda p: self.player_roles[p] in self.evil and self.player_roles[p] == "Mordred"
-            await player.send(f"The Minions of Mordred (excluding Mordred) are:\n{await self.enumerate_players(merlin_filter)}")
-        
-        for player in [p for p in self.players if self.player_roles[player] == "Percival"]:
-            percival_filter = lambda p: self.player_roles[p] == "Merlin" or self.player_roles[p] == "Morgana"
-            await player.send(f"Merlin and Morgana are (you don't know who is who): {await self.enumerate_players(percival_filter)}")
-
-    async def enumerate_players(self, filter):
+    async def enumerate_players(self, players):
         message = ""
-        for player in self.players:
-            if filter(player):
-                message += player.mention + ", "
+        for player in players:
+            message += player.mention + ", "
         if len(message) > 0:
             message = message[:-2]
         return message
 
     async def send_player_order(self, ctx: SlashContext):
+        channel = self.bot.get_channel(ctx.channel_id)
         message = "The order of players is:\n"
         for count, p in enumerate(self.players):
+            if count == 0:
+                message += "⭐" + str(count + 1) + ". " + self.displayname(p) + "\n"
             message += str(count + 1) + ". " + self.displayname(p) + "\n"
+        await channel.send(message)
 
-        await ctx.send(message)
-
-    async def make_dropdown(self, channel_id: int, message: str, players: list(Member), player_select_list: list(Member), num_opt: int):
+    async def make_dropdown(self, channel_id: int, message: str, players: list[Member], player_select_list: list[Member], num_opt: int):
         result = {}
         channel = self.bot.get_channel(channel_id)
         select = create_select(
@@ -217,12 +214,11 @@ class Avalon(Cog):
             if dropdown_ctx.author not in players:
                 continue
             result[dropdown_ctx.author] = [player for player in player_select_list if str(player.id) in dropdown_ctx.values]
-            dropdown_ctx.send(f"{dropdown_ctx.author.mention} made their selection.")
+            await dropdown_ctx.send(f"{dropdown_ctx.author.mention} made their selection.")
         # for k, v in result.items():
         #     print(f"caller: {self.displayname(k)}")
         #     for player in v:
         #         print(f"option: {self.displayname(player)}")
-                
         return result
 
 def setup(bot: Bot):
