@@ -1,0 +1,13 @@
+```asciidoc
+[Roles]
+= Loyal Servants of Arthur =
+Merlin: Can see all members of the evil side (except for Mordred).
+Percival: Can see who Morgana and Percival are. Percival doesn't know who is who.
+= Evil Minions of Mordred =
+Mordred: Is invisible to Merlin.
+Morgana: Pretends to be Merlin in order to throw Percival off.
+Assassin: The assigned person to choose who they think Merlin is if the good side wins.
+[Post-Game]
+If the good side wins, there is a chance for the evil side to take the win.
+If the evil side either votes who Merlin is, or the Assassin chooses who Merlin is, then the evil side wins.
+```
