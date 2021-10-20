@@ -2,7 +2,7 @@ import random
 from discord import Embed, Member
 from discord.ext.commands import Bot, Cog
 from discord_slash import cog_ext, SlashContext, ComponentContext
-from discord_slash.utils.manage_components import create_button, create_actionrow, wait_for_component
+from discord_slash.utils.manage_components import create_button, create_select, create_select_option, create_actionrow, wait_for_component
 from discord_slash.model import ButtonStyle
 guild_id = [340219167909085185]
 
@@ -29,6 +29,7 @@ class Avalon(Cog):
         }
         self.good = ["Loyal Servant of Arthur", "Merlin", "Percival"]
         self.evil = ["Morgana", "Mordred", "Assassin", "Minion of Mordred"]
+        self.ctx = None
     
     def displayname(self, member: Member):
         # A helper function to return the member's display name
@@ -72,14 +73,15 @@ class Avalon(Cog):
 
     @cog_ext.cog_slash(name="start", guild_ids=guild_id) # TODO add desc
     async def _start(self, ctx: SlashContext):
-        if self.game_status == 2: #TODO erorr xd
+        if self.game_status == 2:
+            await ctx.send("The game has already been started.")
             return
 
         buttons = [
             create_button(style=ButtonStyle.green, label="Join"),
             create_button(style=ButtonStyle.red, label="Leave"),
             create_button(style=ButtonStyle.blue, label="Ready"),
-            create_button(style=ButtonStyle.blurple, label="Unready")
+            create_button(style=ButtonStyle.blue, label="Unready")
         ]
         action_row = create_actionrow(*buttons)
         await ctx.send("Starting Avalon game...", components=[action_row])
@@ -101,13 +103,13 @@ class Avalon(Cog):
                     self.players.remove(button_ctx.author)
                     await button_ctx.send(f"{button_ctx.author.mention} has left the game.")
                 else:
-                    await button_ctx.send(f"{button_ctx.author.mention}, you aren't even in the game, dude.")
+                    await button_ctx.send(f"{button_ctx.author.mention}, you aren't in the game.")
             elif button_ctx.component["label"] == "Ready":
-                if button_ctx.author not in self.players: # TODO error messages
+                if button_ctx.author not in self.players:
+                    await button_ctx.send(f"{button_ctx.author.mention}, you haven't joined the game.")
                     return
                 if button_ctx.author in self.ready_players:
-                    return
-                if self.game_status != 1:
+                    await button_ctx.send(f"{button_ctx.author.mention}, you are already ready.")
                     return
                 
                 self.ready_players.append(button_ctx.author)
@@ -115,17 +117,20 @@ class Avalon(Cog):
 
                 if len(self.ready_players) == len(self.players):
                     if len(self.players) < self.min_players:
-                        pass # TODO error message
+                        await button_ctx.send(f"Need {self.min_players} to start game.")
                     else:
                         self.game_status = 2
                         # TODO countdown
                         await self.assign_roles()
+                        await self.send_player_order(ctx=ctx)
+                        await self.make_dropdown(ctx.channel_id, "Temp", self.players, self.players, 2)
+
             elif button_ctx.component["label"] == "Unready":
-                if button_ctx.author not in self.players: # TODO error messages
+                if button_ctx.author not in self.players:
+                    await button_ctx.send(f"{button_ctx.author.mention} you aren't even in the game, dude.")
                     return
                 if button_ctx.author not in self.ready_players:
-                    return
-                if self.game_status != 1:
+                    await button_ctx.send(f"{button_ctx.author.mention} you're already not ready.")
                     return
                 
                 self.ready_players.remove(button_ctx.author)
@@ -196,14 +201,38 @@ class Avalon(Cog):
             if message != "":
                 await player.send(message)
 
-        await self.sendPlayerOrder()
-
-    async def sendPlayerOrder(self, ctx: SlashContext):
+    async def send_player_order(self, ctx: SlashContext):
         message = "The order of players is:\n"
         for count, p in enumerate(self.players):
             message += str(count + 1) + ". " + self.displayname(p) + "\n"
 
-        ctx.send(message)
+        await ctx.send(message)
+
+    async def make_dropdown(self, channel_id, message, players, player_select_list, num_opt):
+        result = {}
+        channel = self.bot.get_channel(channel_id)
+        select = create_select(
+            options=[
+                create_select_option(self.displayname(player), value=str(player.id)) for player in player_select_list
+            ],
+            placeholder="Select players...",
+            min_values=num_opt,
+            max_values=num_opt
+        )
+        action_row = create_actionrow(select)
+        await channel.send(message, components=[action_row])
+        while len(result) != len(players):
+            dropdown_ctx: ComponentContext = await wait_for_component(self.bot, components=action_row)
+            if dropdown_ctx.author not in players:
+                continue
+            result[dropdown_ctx.author] = [player for player in player_select_list if str(player.id) in dropdown_ctx.values]
+            dropdown_ctx.send(f"{dropdown_ctx.author.mention} made their selection.")
+        # for k, v in result.items():
+        #     print(f"caller: {self.displayname(k)}")
+        #     for player in v:
+        #         print(f"option: {self.displayname(player)}")
+                
+        return result
 
 def setup(bot: Bot):
     bot.add_cog(Avalon(bot))

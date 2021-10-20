@@ -22,5 +22,5 @@ If a majority of players vote to accept, then the quest phase of gameplay begins
 Now that a team has been selected. Each team member will individually and privately select whether to succeed or fail the quest.
 The quest succeeds if all team members select to succeed the quest.
 The quest will fail if one or more team members select to fail quest.
-(If the game is played with more than seven players, then on the fourth round you need to team members to select to fail the quest in order to fail the quest.)
+(If the game is played with more than seven players, then on the fourth round you need two team members to select "fail" in order for the quest to fail.)
 ```
