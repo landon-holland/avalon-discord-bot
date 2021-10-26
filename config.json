@@ -1,0 +1,29 @@
+{
+    "roles": {
+        "5": {"Loyal Servant of Arthur": 1, "Merlin": 1, "Percival": 1, "Morgana": 1, "Mordred": 1, "Assassin": 0, "Minion of Mordred": 0},
+        "6": {"Loyal Servant of Arthur": 2, "Merlin": 1, "Percival": 1, "Morgana": 1, "Mordred": 1, "Assassin": 0, "Minion of Mordred": 0},
+        "7": {"Loyal Servant of Arthur": 2, "Merlin": 1, "Percival": 1, "Morgana": 1, "Mordred": 1, "Assassin": 1, "Minion of Mordred": 0},
+        "8": {"Loyal Servant of Arthur": 3, "Merlin": 1, "Percival": 1, "Morgana": 1, "Mordred": 1, "Assassin": 1, "Minion of Mordred": 0},
+        "9": {"Loyal Servant of Arthur": 4, "Merlin": 1, "Percival": 1, "Morgana": 1, "Mordred": 1, "Assassin": 1, "Minion of Mordred": 0},
+        "10": {"Loyal Servant of Arthur": 4, "Merlin": 1, "Percival": 1, "Morgana": 1, "Mordred": 1, "Assassin": 1, "Minion of Mordred": 1}
+    },
+    "good": ["Loyal Servant of Arthur", "Merlin", "Percival"],
+    "evil": ["Morgana", "Mordred", "Assassin", "Minion of Mordred"],
+    "team_counts": {
+        "5": [2, 3, 2, 3, 3],
+        "6": [2, 3, 4, 3, 4],
+        "7": [2, 3, 3, 4, 4],
+        "8": [3, 4, 4, 5, 5],
+        "9": [3, 4, 4, 5, 5],
+        "10": [3, 4, 4, 5, 5]
+    },
+    "role_thumbnails": {
+        "Loyal Servant of Arthur": "http://gamekicker.herokuapp.com/assets/loyal-5b2decd4aa309e12020b50b3950ab440.jpeg",
+        "Merlin": "https://www.ultraboardgames.com/avalon/gfx/merlin.jpg",
+        "Percival": "https://www.ultraboardgames.com/avalon/gfx/percival.jpg",
+        "Morgana": "https://www.ultraboardgames.com/avalon/gfx/morgana.jpg",
+        "Mordred": "https://www.ultraboardgames.com/avalon/gfx/mordred.jpg",
+        "Assassin": "https://www.ultraboardgames.com/avalon/gfx/assassin.jpg",
+        "Minion of Mordred": "http://gamekicker.herokuapp.com/assets/minion-553e9b70b2aea7fbfd37e20e68aab878.jpeg"
+    }
+}
