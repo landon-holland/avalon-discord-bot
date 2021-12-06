@@ -178,36 +178,52 @@ class Avalon(Cog):
 
     async def main_game_loop(self, ctx: SlashContext):
         channel_ctx = self.bot.get_channel(ctx.channel_id)
-        skips = 0
-        while skips < 5:
-            # Send team order
-            await self.send_player_order(ctx.channel_id)
-            # Make dropdown for team leader to make team
-            picked_players = (await self.make_dropdown(ctx.channel_id, f"{self.players[0].mention} is the current team leader!", {self.players[0]}, self.players, self.team_counts[str(len(self.players))][self.quest_num]))[self.players[0]]
-            # List team
-            await channel_ctx.send(f"{self.players[0].mention} has chosen:\n{''.join([f'{i + 1}. {player.mention}🍔' for i, player in enumerate(picked_players)])}".replace("🍔", "\n")) # lmao
-            # Whole group votes on team
-            team_responses = await self.call_vote(channel_id=ctx.channel_id, message="Should this team go on the quest?", players=self.players, private=False)
-            # Check votes
-            if sum([1 if "Pass" == value else 0 for key, value in team_responses.items()]) > len(self.players) / 2:
-                break
-            skips += 1
-            await channel_ctx.send(f"The vote has failed! Time to vote for another team. ({skips}/5 skips)")
-            self.players.append(self.players.pop(0))
-        if skips == 5:
-            pass # TODO basically go back to beginning incrementing quest and bad team won
-        # Team does quest now
-        await channel_ctx.send("The vote has passed! The team will be going on the quest.")
-        quest_responses = await self.call_vote(channel_id=ctx.channel_id, message="Do you want the quest to pass or fail?", players=picked_players, private=True)
-        if sum([1 if "Fail" == value else 0 for key, value in quest_responses.items()]) > (1 if self.quest_num == 3 else 0):
-            await channel_ctx.send("The quest has failed!")
-            self.passed_quests[self.quest_num] = "Failed"
-        else:
-            await channel_ctx.send("The quest has passed!")
-            self.passed_quests[self.quest_num] = "Passed"
-        await channel_ctx.send(f"Quest {self.quest_num + 1} is over. Moving on to Quest {self.quest_num + 2}...")
-        await channel_ctx.send("".join([f"Quest {i + 1}: {result}\n" for i, result in enumerate(self.passed_quests)]))
-        self.quest_num += 1
+        # Five quests
+        for i in range(5):
+            skips = 0
+            while skips < 5:
+                # Quest information
+                await channel_ctx.send(f"Welcome to Quest {self.quest_num + 1}!")
+                await channel_ctx.send(f"There will be {self.team_counts[str(len(self.players))][self.quest_num]} team members on this Quest.")
+                if self.quest_num == 3 and len(self.players) > 6:
+                    await channel_ctx.send("For this Quest **TWO** fail votes are required for the Quest to fail!")
+                # Send team order
+                await self.send_player_order(ctx.channel_id)
+                # Make dropdown for team leader to make team
+                picked_players = (await self.make_dropdown(ctx.channel_id, f"{self.players[0].mention} is the current team leader!", {self.players[0]}, self.players, self.team_counts[str(len(self.players))][self.quest_num]))[self.players[0]]
+                # List team
+                await channel_ctx.send(f"{self.players[0].mention} has proposed the following team:\n{''.join([f'{i + 1}. {player.mention}🍔' for i, player in enumerate(picked_players)])}".replace("🍔", "\n")) # lmao
+                # Whole group votes on team
+                team_responses = await self.call_vote(channel_id=ctx.channel_id, message="Should this proposed team go on the Quest?", players=self.players, private=False)
+                # Check votes
+                if sum([1 if "Pass" == value else 0 for key, value in team_responses.items()]) > len(self.players) / 2:
+                    break
+                skips += 1
+                await channel_ctx.send(f"The vote has failed! Time to vote for another team. ({skips}/5 skips)")
+                await channel_ctx.send("If 5 skips is reached, the Quest is failed!")
+                self.players.append(self.players.pop(0))
+            if skips == 5:
+                await channel_ctx.send("The proposed teams have been skipped 5 times now! Evil has won the Quest")
+                self.passed_quests[self.quest_num] = "Failed"
+                self.quest_num += 1
+                # TODO monkey coding is happening here, make this a function
+                await channel_ctx.send(f"Quest {self.quest_num + 1} is over. Moving on to Quest {self.quest_num + 2}...")
+                await channel_ctx.send("".join([f"Quest {i + 1}: {result}\n" for i, result in enumerate(self.passed_quests)]))
+                continue
+            # Team does quest now
+            await channel_ctx.send("The vote has passed! The proposed team will be going on the Quest.")
+            quest_responses = await self.call_vote(channel_id=ctx.channel_id, message=f"{', '.join([f'{player.mention}' for player in picked_players])}: Do you want the quest to pass or fail?", players=picked_players, private=True)
+            if sum([1 if "Fail" == value else 0 for key, value in quest_responses.items()]) > (1 if self.quest_num == 3 and len(self.players) > 6 else 0):
+                await channel_ctx.send("The quest has failed!")
+                self.passed_quests[self.quest_num] = "Failed"
+            else:
+                await channel_ctx.send("The quest has passed!")
+                self.passed_quests[self.quest_num] = "Passed"
+            await channel_ctx.send(f"Quest {self.quest_num + 1} is over. Moving on to Quest {self.quest_num + 2}...")
+            await channel_ctx.send("".join([f"Quest {i + 1}: {result}\n" for i, result in enumerate(self.passed_quests)]))
+            # TODO checks for winners
+            self.quest_num += 1
+        # TODO stuff with assassinations
 
     async def enumerate_players(self, players):
         message = ""
