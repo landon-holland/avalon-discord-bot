@@ -1,6 +1,6 @@
 import random
 import json
-from discord import Embed, Member
+from discord import Embed, Member, player
 from discord.ext.commands import Bot, Cog
 from discord_slash import cog_ext, SlashContext, ComponentContext
 from discord_slash.utils.manage_components import create_button, create_select, create_select_option, create_actionrow, wait_for_component
@@ -16,6 +16,7 @@ class Avalon(Cog):
         self.min_players = 5
         self.max_players = 10
         self.player_roles = {}
+        self.passed_quests = ["Not done"] * 5
         self.quest_num = 0    # count from 0
         self.game_status = 0  # 0: No Game. 1: Intermission. 2: In game
         self.checkTime = 300  # TODO add game timeout
@@ -176,8 +177,37 @@ class Avalon(Cog):
             await player.send(f"Merlin and Morgana are (you don't know who is who): {await self.enumerate_players(percival_players)}")
 
     async def main_game_loop(self, ctx: SlashContext):
-        await self.send_player_order(ctx=ctx)
-        await self.make_dropdown(ctx.channel_id, f"{self.players[0].mention} is the current team leader!", {self.players[0]}, self.players, self.team_counts[str(len(self.players))][self.quest_num])
+        channel_ctx = self.bot.get_channel(ctx.channel_id)
+        skips = 0
+        while skips < 5:
+            # Send team order
+            await self.send_player_order(ctx.channel_id)
+            # Make dropdown for team leader to make team
+            picked_players = (await self.make_dropdown(ctx.channel_id, f"{self.players[0].mention} is the current team leader!", {self.players[0]}, self.players, self.team_counts[str(len(self.players))][self.quest_num]))[self.players[0]]
+            # List team
+            await channel_ctx.send(f"{self.players[0].mention} has chosen:\n{''.join([f'{i + 1}. {player.mention}🍔' for i, player in enumerate(picked_players)])}".replace("🍔", "\n")) # lmao
+            # Whole group votes on team
+            team_responses = await self.call_vote(channel_id=ctx.channel_id, message="Should this team go on the quest?", players=self.players, private=False)
+            # Check votes
+            if sum([1 if "Pass" == value else 0 for key, value in team_responses.items()]) > len(self.players) / 2:
+                break
+            skips += 1
+            await channel_ctx.send(f"The vote has failed! Time to vote for another team. ({skips}/5 skips)")
+            self.players.append(self.players.pop(0))
+        if skips == 5:
+            pass # TODO basically go back to beginning incrementing quest and bad team won
+        # Team does quest now
+        await channel_ctx.send("The vote has passed! The team will be going on the quest.")
+        quest_responses = await self.call_vote(channel_id=ctx.channel_id, message="Do you want the quest to pass or fail?", players=picked_players, private=True)
+        if sum([1 if "Fail" == value else 0 for key, value in quest_responses.items()]) > (1 if self.quest_num == 3 else 0):
+            await channel_ctx.send("The quest has failed!")
+            self.passed_quests[self.quest_num] = "Failed"
+        else:
+            await channel_ctx.send("The quest has passed!")
+            self.passed_quests[self.quest_num] = "Passed"
+        await channel_ctx.send(f"Quest {self.quest_num + 1} is over. Moving on to Quest {self.quest_num + 2}...")
+        await channel_ctx.send("".join([f"Quest {i + 1}: {result}\n" for i, result in enumerate(self.passed_quests)]))
+        self.quest_num += 1
 
     async def enumerate_players(self, players):
         message = ""
@@ -187,15 +217,35 @@ class Avalon(Cog):
             message = message[:-2]
         return message
 
-    async def send_player_order(self, ctx: SlashContext):
-        channel = self.bot.get_channel(ctx.channel_id)
+    async def send_player_order(self, channel_id: int):
+        channel = self.bot.get_channel(channel_id)
         message = "The order of players is:\n"
         for count, p in enumerate(self.players):
             if count == 0:
-                message += "⭐ " + str(count + 1) + ". " + \
-                    self.displayname(p) + "\n"
-            message += str(count + 1) + ". " + self.displayname(p) + "\n"
+                message += f"⭐ {str(count + 1)}. {self.displayname(p)} \n"
+            else:
+                message += str(count + 1) + ". " + self.displayname(p) + "\n"
         await channel.send(message)
+    
+    async def call_vote(self, channel_id: int, message: str, players: list[Member], private: bool):
+        responses = {}
+        channel = self.bot.get_channel(channel_id)
+        buttons = [
+            create_button(style=ButtonStyle.green, label="Pass"),
+            create_button(style=ButtonStyle.red, label="Fail")
+        ]
+        action_row = create_actionrow(*buttons)
+        await channel.send(message, components=[action_row])
+        while len(responses) != len(players):
+            button_ctx: ComponentContext = await wait_for_component(self.bot, components=action_row)
+            if button_ctx.author not in players:
+                continue
+            responses[button_ctx.author] = button_ctx.component["label"]
+            if private:
+                await button_ctx.send(f"{len(responses)}/{len(players)} team members have voted.")
+            else:
+                await button_ctx.send(f"{button_ctx.author.mention} voted to {button_ctx.component['label'].lower()}.")
+        return responses
 
     async def make_dropdown(self, channel_id: int, message: str, players: list[Member], player_select_list: list[Member], num_opt: int):
         result = {}
